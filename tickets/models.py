@@ -16,11 +16,8 @@ class Ticket(models.Model):
     creation_order = models.PositiveIntegerField(editable=False, db_index=True, unique=True)
 
     class Meta:
-        ordering = ['created_at']
-        indexes = [
-            models.Index(fields=['assigned_to', 'is_sold']),
-            models.Index(fields=['created_at']),
-        ]
+        ordering = ['created_at', 'creation_order']
+        indexes = [models.Index(fields=['assigned_to', 'is_sold', 'created_at', 'creation_order'])]
 
     def save(self, *args, **kwargs):
         if not self.pk and not self.creation_order:

@@ -1,26 +1,28 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  db:
-    image: postgres
-    environment:
-      POSTGRES_DB: support_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   web:
-    build: .
+    build: .  # Build the image from the Dockerfile in the current directory
+    command: gunicorn support_system.wsgi:application --bind 0.0.0.0:8000  # Run the app using gunicorn
+    volumes:
+      - .:/app  # Mount the current directory into the container (useful for development)
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Expose the app on port 8000
+    env_file:
+      - .env  # Load environment variables from the .env file
     depends_on:
-      - db
+      - db  # Wait for the database to be ready
+
+  db:
+    image: postgres:15  # Use the official PostgreSQL image
     environment:
-      - POSTGRES_DB=support_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - DB_HOST=db
+      POSTGRES_USER: support_user  # Set the database user
+      POSTGRES_PASSWORD: support_user  # Set the database password
+      POSTGRES_DB: support_system  # Set the database name
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist database data
+    ports:
+      - "5432:5432"  # Expose the database on port 5432
 
 volumes:
-  postgres_data:
+  postgres_data:  # Persistent volume for the PostgreSQL database data

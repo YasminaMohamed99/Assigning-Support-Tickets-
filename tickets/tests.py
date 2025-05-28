@@ -18,6 +18,27 @@ class TicketAssignmentTests(TestCase):
 
         self.client = APIClient()
 
+    def test_admin_can_create_update_delete_ticket(self):
+        self.client.force_authenticate(user=self.admin)
+
+        # Create ticket
+        create_res = self.client.post('/api/tickets/', {
+            'subject': 'New Ticket',
+            'description': 'Test Description',
+            'created_by': self.admin.id,
+        })
+        self.assertEqual(create_res.status_code, 201)
+        ticket_id = create_res.data['id']
+
+        # Update ticket
+        update_res = self.client.patch(f'/api/tickets/{ticket_id}/', {'subject': 'Updated Subject'})
+        self.assertEqual(update_res.status_code, 200)
+        self.assertEqual(update_res.data['subject'], 'Updated Subject')
+
+        # Delete ticket
+        delete_res = self.client.delete(f'/api/tickets/{ticket_id}/')
+        self.assertEqual(delete_res.status_code, 204)
+
     def test_fetch_tickets_assigns_max_15(self):
         self.client.force_authenticate(user=self.agent1)
         response = self.client.get('/api/tickets/fetch-tickets/')
@@ -55,3 +76,36 @@ class TicketAssignmentTests(TestCase):
         self.client.force_authenticate(user=self.admin)
         response = self.client.get('/api/tickets/fetch-tickets/')
         self.assertEqual(response.status_code, 403)
+
+
+    def test_concurrent_fetch_no_overlaps(self):
+        agents = [User.objects.create_user(username=f'agent{i}', password='pass', role='agent') for i in range(10)]
+
+        def fetch_for_agent(agent):
+            client = APIClient()
+            client.force_authenticate(user=agent)
+            return client.get('/api/tickets/fetch-tickets/')
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = executor.map(fetch_for_agent, agents)
+
+        all_ticket_ids = set()
+        for res in results:
+            self.assertEqual(res.status_code, 200)
+            tickets_ids = {t['id'] for t in res.data}
+            # Ensure no overlap with previously assigned tickets
+            self.assertTrue(tickets_ids.isdisjoint(all_ticket_ids))
+            all_ticket_ids.update(tickets_ids)
+
+    def test_fetch_tickets_when_no_unassigned_tickets_left(self):
+        self.client.force_authenticate(user=self.agent1)
+
+        # Assign all tickets to some agent so no unassigned tickets remain
+        Ticket.objects.filter(assigned_to__isnull=True).update(assigned_to=self.agent2)
+
+        res = self.client.get('/api/tickets/fetch-tickets/')
+        self.assertEqual(res.status_code, 200)
+        # Tickets assigned to agent1 should be returned (possibly empty)
+        self.assertLessEqual(len(res.data), 15)
+
+
