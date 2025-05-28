@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_DB: support_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - POSTGRES_DB=support_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - DB_HOST=db
+
+volumes:
+  postgres_data:
