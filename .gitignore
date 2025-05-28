@@ -11,6 +11,7 @@ db.sqlite3
 media/
 staticfiles/
 .env
+venv
 .vscode/
 **/migrations/**
 .DS_Store
